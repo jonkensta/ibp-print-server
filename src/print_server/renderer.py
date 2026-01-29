@@ -20,12 +20,17 @@ def code128(s: str, size: tuple[float, float]) -> Image.Image:
     writer = ImageWriter()
     # dpi=300 is standard for print
     # We initialize with a dict but will cast or rely on usage
-    base_options: dict[str, Any] = dict(
-        write_text=False, writer=writer, dpi=300, quiet_zone=0
-    )
+    base_options: BarcodeOptions = {
+        "write_text": False,
+        "writer": writer,
+        "dpi": 300,
+        "quiet_zone": 0,
+        "module_width": 0.0,  # Placeholder, set later
+        "module_height": 0.0,  # Placeholder, set later
+    }
 
     def px2mm(px: float) -> float:
-        dpi = cast(int, base_options["dpi"])
+        dpi = base_options["dpi"]
         return 25.4 * px / dpi
 
     # Code128 includes checksum by default
@@ -40,7 +45,8 @@ def code128(s: str, size: tuple[float, float]) -> Image.Image:
     base_options["module_height"] = h
 
     # Cast to Image.Image because barcode.render returns Any
-    return cast(Image.Image, code.render(base_options))
+    # barcode.render expects Dict[str, Any] usually, but TypedDict should pass as Dict
+    return cast(Image.Image, code.render(cast(dict[str, Any], base_options)))
 
 
 def box_size(

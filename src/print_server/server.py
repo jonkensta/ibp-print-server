@@ -6,15 +6,16 @@ from queue import Queue
 from typing import Any
 from urllib.parse import parse_qs
 
-# Import Printer for health check
+# Import Printer for type hinting
 from .printer import Printer
 
 logger = logging.getLogger(__name__)
 
 
 class LabelServer:
-    def __init__(self, address: tuple[str, int]) -> None:
+    def __init__(self, address: tuple[str, int], printer: Printer) -> None:
         self._address = address
+        self._printer = printer
         self._queue: Queue[dict[str, Any]] = Queue()
         self._httpd = http.server.HTTPServer(address, self._create_handler())
         self._thread = threading.Thread(target=self._httpd.serve_forever)
@@ -22,6 +23,7 @@ class LabelServer:
 
     def _create_handler(self) -> type[http.server.BaseHTTPRequestHandler]:
         queue = self._queue
+        printer = self._printer
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_OPTIONS(self) -> None:  # noqa: N802
@@ -55,10 +57,9 @@ class LabelServer:
                     self._send_cors_headers()
                     self.end_headers()
 
-                    # Get printer status
+                    # Get printer status using shared printer instance
                     try:
-                        p = Printer()
-                        printers = p.get_available_printers()
+                        printers = printer.get_available_printers()
                         status = {
                             "status": "ok",
                             "service": "print-server",

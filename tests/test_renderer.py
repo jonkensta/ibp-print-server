@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from PIL import Image, ImageFont
+
 from print_server.renderer import (
     box_size,
     code128,

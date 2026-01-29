@@ -47,7 +47,8 @@ def main() -> None:
 
     elif args.command == "server":
         printer = Printer()
-        server = LabelServer(("", args.port))
+        # Pass the printer instance to the server
+        server = LabelServer(("", args.port), printer)
 
         # Signal handling for graceful shutdown
         def signal_handler(sig: int, frame: FrameType | None) -> None:
