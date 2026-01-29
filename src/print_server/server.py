@@ -6,6 +6,9 @@ from queue import Queue
 from typing import Any
 from urllib.parse import parse_qs
 
+# Import Printer for health check
+from .printer import Printer
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +55,26 @@ class LabelServer:
                     self._send_cors_headers()
                     self.end_headers()
 
-                    status = {"status": "ok", "service": "print-server"}
+                    # Get printer status
+                    try:
+                        p = Printer()
+                        printers = p.get_available_printers()
+                        status = {
+                            "status": "ok",
+                            "service": "print-server",
+                            "printers": {
+                                "count": len(printers),
+                                "names": printers,
+                            },
+                        }
+                    except Exception as e:
+                        logger.error(f"Health check failed to get printers: {e}")
+                        status = {
+                            "status": "degraded",
+                            "service": "print-server",
+                            "error": str(e),
+                        }
+
                     self.wfile.write(json.dumps(status).encode("utf-8"))
                 else:
                     self.send_error(404)

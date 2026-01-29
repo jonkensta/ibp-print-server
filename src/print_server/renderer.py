@@ -1,19 +1,32 @@
 import importlib.resources
-from typing import cast
+from typing import Any, TypedDict, cast
 
 import barcode
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
 
 
+class BarcodeOptions(TypedDict):
+    write_text: bool
+    writer: Any
+    dpi: int
+    quiet_zone: int
+    module_width: float
+    module_height: float
+
+
 def code128(s: str, size: tuple[float, float]) -> Image.Image:
     """Generate a Code128 barcode image."""
     writer = ImageWriter()
     # dpi=300 is standard for print
-    options = dict(write_text=False, writer=writer, dpi=300, quiet_zone=0)
+    # We initialize with a dict but will cast or rely on usage
+    base_options: dict[str, Any] = dict(
+        write_text=False, writer=writer, dpi=300, quiet_zone=0
+    )
 
     def px2mm(px: float) -> float:
-        return 25.4 * px / options["dpi"]  # type: ignore
+        dpi = cast(int, base_options["dpi"])
+        return 25.4 * px / dpi
 
     # Code128 includes checksum by default
     code = barcode.Code128(str(s), writer=writer)
@@ -21,13 +34,13 @@ def code128(s: str, size: tuple[float, float]) -> Image.Image:
     raw = code.build()
     modules_per_line = len(raw[0])
     w = px2mm(size[0]) / modules_per_line
-    options["module_width"] = w
+    base_options["module_width"] = w
 
     h = px2mm(size[1]) - 2  # barcode adds this for some reason
-    options["module_height"] = h
+    base_options["module_height"] = h
 
     # Cast to Image.Image because barcode.render returns Any
-    return cast(Image.Image, code.render(options))
+    return cast(Image.Image, code.render(base_options))
 
 
 def box_size(
@@ -37,23 +50,21 @@ def box_size(
     return y1 - y0, x1 - x0
 
 
-def _get_font_file_path() -> str:
-    """Retrieve the path to the bundled font file."""
+def get_font_cache() -> dict[int, ImageFont.FreeTypeFont]:
+    """Load and cache fonts of varying sizes."""
+    fonts = {}
     try:
         ref = importlib.resources.files(__package__) / "DejaVuSansMono.ttf"
         with importlib.resources.as_file(ref) as path:
-            return str(path)
+            # Load all fonts while the file path is guaranteed to be valid
+            for font_size in range(1, 100):
+                fonts[font_size] = ImageFont.truetype(str(path), font_size)
     except Exception:
-        return "DejaVuSansMono.ttf"
+        # Fallback if package resource loading fails
+        for font_size in range(1, 100):
+            fonts[font_size] = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
 
-
-def get_font_cache() -> dict[int, ImageFont.FreeTypeFont]:
-    """Load and cache fonts of varying sizes."""
-    font_path = _get_font_file_path()
-    return {
-        font_size: ImageFont.truetype(font_path, font_size)
-        for font_size in range(1, 100)
-    }
+    return fonts
 
 
 # Initialize font cache

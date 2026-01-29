@@ -66,7 +66,10 @@ def main() -> None:
                 # This loop pulls jobs from the server queue and prints them
                 label = server.get_job()
                 if label:
-                    printer.print_label(label)
+                    try:
+                        printer.print_label(label)
+                    except Exception as e:
+                        logger.error(f"Failed to print label from queue: {e}")
         except KeyboardInterrupt:
             # Should be handled by signal_handler, but just in case
             server.shutdown()

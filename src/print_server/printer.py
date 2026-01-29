@@ -1,7 +1,6 @@
 import logging
 import tempfile
 import time
-from collections.abc import Generator
 from urllib.parse import parse_qs, urlparse
 
 import cups
@@ -31,17 +30,16 @@ class Printer:
         self._conn = cups.Connection()
         self._context = pyudev.Context()
 
-    @property
-    def _printers(self) -> Generator[str, None, None]:
+    def get_available_printers(self) -> list[str]:
         """
-        Yields printer names that are both configured in CUPS and physically
-        connected via USB.
+        Returns a list of printer names that are both configured in CUPS and
+        physically connected via USB.
         """
         try:
             attributes = self._conn.getPrinters()
         except Exception as e:
             logger.error(f"Failed to get printers from CUPS: {e}")
-            return
+            return []
 
         printers = attributes.keys()
 
@@ -75,9 +73,7 @@ class Printer:
                 )
                 return False
 
-        available_printers = filter(is_plugged_in, printers)
-
-        yield from available_printers
+        return list(filter(is_plugged_in, printers))
 
     def _try_print_file_on_printer(
         self, name: str, printer: str, poll_period: float = 0.25
@@ -115,10 +111,10 @@ class Printer:
         logger.info(f"Print job {job_id} completed successfully.")
 
     def _print_file(self, name: str) -> None:
-        printers = list(self._printers)
+        printers = self.get_available_printers()
         if not printers:
             logger.warning("No available printers found.")
-            return
+            raise PrintFailedError("No available printers found")
 
         for printer in printers:
             try:
@@ -130,16 +126,15 @@ class Printer:
                 return  # Success
 
         logger.error("Failed to print on all available printers.")
+        raise PrintFailedError("Failed to print on all available printers")
 
     def print_label(self, label: dict[str, str]) -> None:
         logger.info(
             f"Rendering label for package_id: {label.get('package_id', 'unknown')}"
         )
-        try:
-            rendered = render(label)
-            with tempfile.NamedTemporaryFile(suffix=".png") as fp:
-                rendered.save(fp)
-                fp.flush()
-                self._print_file(fp.name)
-        except Exception as e:
-            logger.error(f"Error in print_label pipeline: {e}")
+        # Exceptions from render or _print_file will propagate up
+        rendered = render(label)
+        with tempfile.NamedTemporaryFile(suffix=".png") as fp:
+            rendered.save(fp)
+            fp.flush()
+            self._print_file(fp.name)
