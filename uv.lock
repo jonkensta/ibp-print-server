@@ -310,10 +310,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.8.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest", specifier = ">=9.0.2" },
-    { name = "ruff", specifier = ">=0.3.0" },
+    { name = "ruff", specifier = ">=0.14.14" },
     { name = "types-pillow", specifier = ">=10.2.0.20240822" },
 ]
 

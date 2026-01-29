@@ -23,10 +23,10 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.8.0",
+    "mypy>=1.19.1",
     "pre-commit>=4.5.1",
     "pytest>=9.0.2",
-    "ruff>=0.3.0",
+    "ruff>=0.14.14",
     "types-pillow>=10.2.0.20240822",
 ]
 
