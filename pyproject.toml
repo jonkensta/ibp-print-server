@@ -1,0 +1,28 @@
+[project]
+name = "print-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Jonathan Starr", email = "github@jstarr.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pillow>=12.1.0",
+    "pycups>=2.0.4",
+    "python-barcode>=0.16.1",
+    "pyudev>=0.24.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "ruff>=0.14.14",
+    "types-pillow>=10.2.0.20240822",
+]
