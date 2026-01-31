@@ -43,9 +43,6 @@ class Printer:
         Returns a list of printer names that are both configured in CUPS and
         physically connected via USB. Results are cached.
         """
-        if self._preferred_printer:
-            return [self._preferred_printer]
-
         now = time.time()
         if now - self._last_discovery < self._cache_duration:
             return self._cached_printers
@@ -57,6 +54,19 @@ class Printer:
             return []
 
         printers = attributes.keys()
+
+        if self._preferred_printer:
+            if self._preferred_printer in printers:
+                self._cached_printers = [self._preferred_printer]
+                self._last_discovery = now
+                return self._cached_printers
+            else:
+                logger.warning(
+                    f"Preferred printer '{self._preferred_printer}' not found in CUPS."
+                )
+                self._cached_printers = []
+                self._last_discovery = now
+                return []
 
         # Get all USB devices from udev
         usb_devices = list(self._context.list_devices(subsystem="usb"))
