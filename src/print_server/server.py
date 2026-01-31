@@ -11,6 +11,22 @@ from .printer import Printer
 
 logger = logging.getLogger(__name__)
 
+REQUIRED_KEYS = {
+    "package_id",
+    "inmate_id",
+    "inmate_name",
+    "inmate_jurisdiction",
+    "unit_name",
+    "unit_shipping_method",
+}
+MAX_FIELD_LENGTH = 10000
+MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
+
+
+class PayloadTooLargeError(Exception):
+    """Raised when the payload exceeds the maximum allowed size."""
+    pass
+
 
 class LabelServer:
     def __init__(self, address: tuple[str, int], printer: Printer) -> None:
@@ -36,10 +52,16 @@ class LabelServer:
             def _get_post_data(self) -> str:
                 try:
                     content_length = int(self.headers["Content-Length"])
-                    return self.rfile.read(content_length).decode("utf-8")
                 except (ValueError, KeyError) as e:
-                    logger.error(f"Error reading POST data: {e}")
-                    raise
+                    logger.error(f"Invalid Content-Length: {e}")
+                    raise ValueError("Invalid Content-Length header") from e
+
+                if content_length > MAX_PAYLOAD_SIZE:
+                    raise PayloadTooLargeError(
+                        f"Payload too large: {content_length} bytes"
+                    )
+
+                return self.rfile.read(content_length).decode("utf-8")
 
             def _send_cors_headers(self) -> None:
                 origin = self.headers.get("Origin")
@@ -82,7 +104,15 @@ class LabelServer:
 
             def do_POST(self) -> None:  # noqa: N802
                 try:
-                    body = self._get_post_data()
+                    try:
+                        body = self._get_post_data()
+                    except PayloadTooLargeError as e:
+                        self.send_error(413, str(e))
+                        return
+                    except ValueError as e:
+                        self.send_error(400, str(e))
+                        return
+
                     query = parse_qs(body, keep_blank_values=True)
 
                     if "data" not in query:
@@ -92,12 +122,34 @@ class LabelServer:
 
                     try:
                         data = json.loads(query["data"][0])
-                        logger.info("Received print job via POST")
-                        queue.put(data)
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON decode error: {e}")
                         self.send_error(400, "Invalid JSON")
                         return
+
+                    if not isinstance(data, dict):
+                        self.send_error(400, "Payload must be a JSON object")
+                        return
+
+                    missing_keys = REQUIRED_KEYS - data.keys()
+                    if missing_keys:
+                        missing_list = ", ".join(sorted(missing_keys))
+                        msg = f"Missing required keys: {missing_list}"
+                        logger.warning(msg)
+                        self.send_error(400, msg)
+                        return
+
+                    for key in REQUIRED_KEYS:
+                        val = data[key]
+                        if not isinstance(val, str):
+                            self.send_error(400, f"Field '{key}' must be a string")
+                            return
+                        if len(val) > MAX_FIELD_LENGTH:
+                            self.send_error(400, f"Field '{key}' is too long")
+                            return
+
+                    logger.info("Received print job via POST")
+                    queue.put(data)
 
                     self.send_response(200)
                     self.send_header("Content-type", "text/xml")
