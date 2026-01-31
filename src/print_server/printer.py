@@ -76,7 +76,11 @@ class Printer:
         return list(filter(is_plugged_in, printers))
 
     def _try_print_file_on_printer(
-        self, name: str, printer: str, poll_period: float = 0.25
+        self,
+        name: str,
+        printer: str,
+        poll_period: float = 0.25,
+        timeout: float = 60.0,
     ) -> None:
         logger.info(f"Attempting to print file {name} on printer {printer}")
         try:
@@ -100,7 +104,11 @@ class Printer:
         def job_succeeded(id_: int) -> bool:
             return get_job_state(id_) == "completed"
 
+        start_time = time.time()
         while job_is_pending(job_id):
+            if time.time() - start_time > timeout:
+                logger.error(f"Print job {job_id} on {printer} timed out")
+                raise PrintFailedError("Job timed out")
             time.sleep(float(poll_period))
 
         if not job_succeeded(job_id):
