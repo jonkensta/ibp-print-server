@@ -100,12 +100,10 @@ class Printer:
         self._last_discovery = now
         return self._cached_printers
 
-    def get_label_size(
-        self, printer_name: str, dpi: int = 300, margin: float = 0.05
-    ) -> tuple[int, int]:
-        """Get printable area in pixels for a printer's default media.
+    def get_label_size(self, printer_name: str, dpi: int = 300) -> tuple[int, int]:
+        """Get label size in pixels for a printer's default media.
 
-        Returns (width, height) in pixels after applying margin.
+        Returns (width, height) in pixels at the given DPI.
         """
         try:
             attrs = self._conn.getPrinterAttributes(printer_name)
@@ -121,8 +119,8 @@ class Printer:
         w_mm = float(match.group(1))
         h_mm = float(match.group(2))
 
-        w_px = int(w_mm / 25.4 * dpi * (1 - 2 * margin))
-        h_px = int(h_mm / 25.4 * dpi * (1 - 2 * margin))
+        w_px = int(w_mm / 25.4 * dpi)
+        h_px = int(h_mm / 25.4 * dpi)
 
         # Ensure landscape orientation (width >= height)
         if w_px < h_px:

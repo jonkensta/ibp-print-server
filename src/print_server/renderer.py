@@ -116,8 +116,8 @@ def fit_text(
     text_h = bbox[3] - bbox[1]
 
     w, h = size
-    x = lhs[0] + round((w - text_w) / 2)
-    y = lhs[1] + round((h - text_h) / 2)
+    x = lhs[0] + round((w - text_w) / 2) - bbox[0]
+    y = lhs[1] + round((h - text_h) / 2) - bbox[1]
 
     draw.text((x, y), text, font=font)
 
@@ -140,37 +140,37 @@ def render(label: dict[str, str], size: tuple[int, int] = (1050, 420)) -> Image.
     draw = ImageDraw.Draw(image)
 
     # package ID barcode
-    box = (0.68 * w, 0.00 * h), (1.00 * w, 0.10 * h)
+    box = (0.68 * w, 0.05 * h), (0.95 * w, 0.10 * h)
     fit_text(draw, box, "package ID")
 
-    box = (0.68 * w, 0.10 * h), (1.00 * w, 0.50 * h)
+    box = (0.68 * w, 0.10 * h), (0.95 * w, 0.50 * h)
     add_barcode(image, label["package_id"], box)
 
-    box = (0.68 * w, 0.50 * h), (1.00 * w, 0.60 * h)
+    box = (0.68 * w, 0.50 * h), (0.95 * w, 0.60 * h)
     fit_text(draw, box, label["package_id"])
 
     # inmate ID barcode
-    box = (0.02 * w, 0.00 * h), (0.65 * w, 0.10 * h)
+    box = (0.05 * w, 0.05 * h), (0.65 * w, 0.10 * h)
     fit_text(draw, box, "inmate ID")
 
-    box = (0.02 * w, 0.10 * h), (0.65 * w, 0.50 * h)
+    box = (0.05 * w, 0.10 * h), (0.65 * w, 0.50 * h)
     add_barcode(image, label["inmate_id"], box)
 
-    box = (0.02 * w, 0.50 * h), (0.65 * w, 0.60 * h)
+    box = (0.05 * w, 0.50 * h), (0.65 * w, 0.60 * h)
     fit_text(draw, box, label["inmate_id"])
 
     # inmate name
-    box = (0.00 * w, 0.60 * h), (1.00 * w, 0.90 * h)
+    box = (0.05 * w, 0.60 * h), (0.95 * w, 0.90 * h)
     fit_text(draw, box, label["inmate_name"])
 
     # other info at bottom
-    box = (0.00 * w, 0.90 * h), (0.33 * w, 1.00 * h)
+    box = (0.05 * w, 0.90 * h), (0.33 * w, 0.95 * h)
     fit_text(draw, box, label["inmate_jurisdiction"])
 
-    box = (0.33 * w, 0.90 * h), (0.67 * w, 1.00 * h)
+    box = (0.33 * w, 0.90 * h), (0.67 * w, 0.95 * h)
     fit_text(draw, box, label["unit_name"])
 
-    box = (0.67 * w, 0.90 * h), (1.00 * w, 1.00 * h)
+    box = (0.67 * w, 0.90 * h), (0.95 * w, 0.95 * h)
     fit_text(draw, box, label["unit_shipping_method"])
 
     return image
