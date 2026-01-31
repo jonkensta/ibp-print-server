@@ -1,0 +1,15 @@
+[Unit]
+Description=IBP Print Server
+After=cups.service
+Wants=cups.service
+
+[Service]
+Type=simple
+User=ibp
+ExecStartPre=/home/ibp/.local/bin/uv tool upgrade print-server
+ExecStart=/home/ibp/.local/bin/print-server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
