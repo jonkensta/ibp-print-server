@@ -1,7 +1,7 @@
 import logging
 import tempfile
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import cups
 import pyudev
@@ -68,34 +68,31 @@ class Printer:
                 self._last_discovery = now
                 return []
 
-        # Get all USB devices from udev
-        usb_devices = list(self._context.list_devices(subsystem="usb"))
-
-        plugged_in_serials = set()
-        for device in usb_devices:
-            # Try ID_SERIAL_SHORT first, then ID_SERIAL
-            serial = device.properties.get("ID_SERIAL_SHORT")
-            if not serial:
-                serial = device.properties.get("ID_SERIAL")
-
-            if serial:
-                plugged_in_serials.add(serial)
+        # Get (manufacturer, product) pairs from plugged-in USB devices
+        plugged_in_devices: set[tuple[str, str]] = set()
+        for device in self._context.list_devices(subsystem="usb"):
+            manufacturer = device.attributes.get("manufacturer")
+            product = device.attributes.get("product")
+            if manufacturer and product:
+                mfr = (
+                    manufacturer.decode()
+                    if isinstance(manufacturer, bytes)
+                    else manufacturer
+                )
+                prod = product.decode() if isinstance(product, bytes) else product
+                plugged_in_devices.add((mfr.lower(), prod.lower()))
 
         def is_plugged_in(printer_name: str) -> bool:
             uri = attributes[printer_name].get("device-uri", "")
             try:
                 parsed = urlparse(uri)
-                query = parse_qs(parsed.query)
-                serial_list = query.get("serial")
-                if not serial_list:
+                if parsed.scheme != "usb":
                     return False
-
-                printer_serial = serial_list[0]
-                return printer_serial in plugged_in_serials
-            except (ValueError, IndexError, AttributeError):
-                logger.debug(
-                    f"Could not parse serial for {printer_name} with URI {uri}"
-                )
+                vendor = parsed.hostname or ""
+                product = parsed.path.strip("/")
+                return (vendor.lower(), product.lower()) in plugged_in_devices
+            except (ValueError, AttributeError):
+                logger.debug(f"Could not parse URI for {printer_name}: {uri}")
                 return False
 
         self._cached_printers = list(filter(is_plugged_in, printers))
