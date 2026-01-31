@@ -31,6 +31,7 @@ def main() -> None:
     # Server Command
     server_parser = subparsers.add_parser("server")
     server_parser.add_argument("--port", type=int, default=40121)
+    server_parser.add_argument("--printer", type=str, help="Preferred printer name")
 
     args = parser.parse_args()
 
@@ -47,7 +48,7 @@ def main() -> None:
             sys.exit(1)
 
     elif args.command == "server":
-        printer = Printer()
+        printer = Printer(preferred_printer=args.printer)
         # Pass the printer instance to the server
         server = LabelServer(("", args.port), printer)
 

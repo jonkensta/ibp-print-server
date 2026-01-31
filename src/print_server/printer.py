@@ -26,10 +26,15 @@ class Printer:
         9: "completed",
     }
 
-    def __init__(self, cache_duration: float = 30.0) -> None:
+    def __init__(
+        self,
+        cache_duration: float = 30.0,
+        preferred_printer: str | None = None,
+    ) -> None:
         self._conn = cups.Connection()
         self._context = pyudev.Context()
         self._cache_duration = cache_duration
+        self._preferred_printer = preferred_printer
         self._cached_printers: list[str] = []
         self._last_discovery = 0.0
 
@@ -38,6 +43,9 @@ class Printer:
         Returns a list of printer names that are both configured in CUPS and
         physically connected via USB. Results are cached.
         """
+        if self._preferred_printer:
+            return [self._preferred_printer]
+
         now = time.time()
         if now - self._last_discovery < self._cache_duration:
             return self._cached_printers
