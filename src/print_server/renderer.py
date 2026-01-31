@@ -52,8 +52,8 @@ def code128(s: str, size: tuple[float, float]) -> Image.Image:
 def box_size(
     box: tuple[tuple[float, float], tuple[float, float]],
 ) -> tuple[float, float]:
-    (y0, x0), (y1, x1) = box
-    return y1 - y0, x1 - x0
+    (x0, y0), (x1, y1) = box
+    return x1 - x0, y1 - y0
 
 
 def get_font_cache() -> dict[int, ImageFont.FreeTypeFont]:
@@ -73,7 +73,7 @@ _FONTS = get_font_cache()
 
 
 def fit_font(size: tuple[float, float], text: str) -> ImageFont.FreeTypeFont:
-    size_h, size_w = size
+    size_w, size_h = size
 
     min_, max_ = 1, 100
     while abs(max_ - min_) > 1:
@@ -95,9 +95,9 @@ def fit_font(size: tuple[float, float], text: str) -> ImageFont.FreeTypeFont:
 def round_box(
     box: tuple[tuple[float, float], tuple[float, float]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
-    (w0, h0), (w1, h1) = box
-    w0_r, h0_r, w1_r, h1_r = map(round, (w0, h0, w1, h1))
-    return (int(w0_r), int(h0_r)), (int(w1_r), int(h1_r))
+    (x0, y0), (x1, y1) = box
+    x0_r, y0_r, x1_r, y1_r = map(round, (x0, y0, x1, y1))
+    return (int(x0_r), int(y0_r)), (int(x1_r), int(y1_r))
 
 
 def fit_text(
@@ -115,8 +115,9 @@ def fit_text(
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    x = lhs[0] + round((size[0] - text_w) / 2)
-    y = lhs[1] + round((size[1] - text_h) / 2)
+    w, h = size
+    x = lhs[0] + round((w - text_w) / 2)
+    y = lhs[1] + round((h - text_h) / 2)
 
     draw.text((x, y), text, font=font)
 

@@ -13,10 +13,10 @@ from print_server.renderer import (
 
 
 def test_box_size() -> None:
-    box = ((10.0, 20.0), (50.0, 60.0))
-    # y1-y0 = 50-10 = 40
-    # x1-x0 = 60-20 = 40
-    assert box_size(box) == (40.0, 40.0)
+    box = ((10.0, 20.0), (50.0, 80.0))
+    # width = x1-x0 = 50-10 = 40
+    # height = y1-y0 = 80-20 = 60
+    assert box_size(box) == (40.0, 60.0)
 
 
 def test_round_box() -> None:
@@ -29,7 +29,8 @@ def test_round_box() -> None:
 def test_fit_font() -> None:
     # Test that it returns a font object
     # The actual size depends on the font file which is bundled
-    size = (100.0, 200.0)
+    # size is (width, height)
+    size = (200.0, 100.0)
     font = fit_font(size, "TEST")
     assert isinstance(font, ImageFont.FreeTypeFont)
 
@@ -38,8 +39,8 @@ def test_fit_font() -> None:
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    assert text_w < size[1]
-    assert text_h < size[0]
+    assert text_w < size[0]
+    assert text_h < size[1]
 
 
 def test_fit_text() -> None:
