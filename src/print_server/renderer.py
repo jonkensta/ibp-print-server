@@ -59,16 +59,11 @@ def box_size(
 def get_font_cache() -> dict[int, ImageFont.FreeTypeFont]:
     """Load and cache fonts of varying sizes."""
     fonts = {}
-    try:
-        ref = importlib.resources.files(__package__) / "DejaVuSansMono.ttf"
-        with importlib.resources.as_file(ref) as path:
-            # Load all fonts while the file path is guaranteed to be valid
-            for font_size in range(1, 100):
-                fonts[font_size] = ImageFont.truetype(str(path), font_size)
-    except Exception:
-        # Fallback if package resource loading fails
+    ref = importlib.resources.files(__package__) / "DejaVuSansMono.ttf"
+    with importlib.resources.as_file(ref) as path:
+        # Load all fonts while the file path is guaranteed to be valid
         for font_size in range(1, 100):
-            fonts[font_size] = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
+            fonts[font_size] = ImageFont.truetype(str(path), font_size)
 
     return fonts
 
