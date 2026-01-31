@@ -84,4 +84,4 @@ def test_render_smoke() -> None:
     }
     img = render(label)
     assert isinstance(img, Image.Image)
-    assert img.size == (1300, 500)
+    assert img.size == (1050, 420)

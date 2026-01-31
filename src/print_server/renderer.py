@@ -134,8 +134,8 @@ def add_barcode(
     image.paste(bc_img, lhs)
 
 
-def render(label: dict[str, str]) -> Image.Image:
-    w, h = 1300.0, 500.0
+def render(label: dict[str, str], size: tuple[int, int] = (1050, 420)) -> Image.Image:
+    w, h = float(size[0]), float(size[1])
     image = Image.new("L", (int(w), int(h)), color=(255,))
     draw = ImageDraw.Draw(image)
 

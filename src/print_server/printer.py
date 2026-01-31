@@ -1,4 +1,5 @@
 import logging
+import re
 import tempfile
 import time
 from urllib.parse import urlparse
@@ -99,6 +100,39 @@ class Printer:
         self._last_discovery = now
         return self._cached_printers
 
+    def get_label_size(
+        self, printer_name: str, dpi: int = 300, margin: float = 0.05
+    ) -> tuple[int, int]:
+        """Get printable area in pixels for a printer's default media.
+
+        Returns (width, height) in pixels after applying margin.
+        """
+        try:
+            attrs = self._conn.getPrinterAttributes(printer_name)
+        except cups.IPPError as e:
+            logger.error(f"Failed to get attributes for {printer_name}: {e}")
+            raise PrintFailedError(f"Cannot query printer attributes: {e}") from e
+
+        media = attrs.get("media-default", "")
+        match = re.search(r"(\d+\.?\d*)x(\d+\.?\d*)mm", media)
+        if not match:
+            raise PrintFailedError(f"Cannot parse media size from: {media}")
+
+        w_mm = float(match.group(1))
+        h_mm = float(match.group(2))
+
+        w_px = int(w_mm / 25.4 * dpi * (1 - 2 * margin))
+        h_px = int(h_mm / 25.4 * dpi * (1 - 2 * margin))
+
+        # Ensure landscape orientation (width >= height)
+        if w_px < h_px:
+            w_px, h_px = h_px, w_px
+
+        logger.info(
+            f"Label size for {printer_name}: {w_mm}x{h_mm}mm -> {w_px}x{h_px}px"
+        )
+        return w_px, h_px
+
     def _try_print_file_on_printer(
         self,
         name: str,
@@ -166,9 +200,14 @@ class Printer:
         logger.info(
             f"Rendering label for package_id: {label.get('package_id', 'unknown')}"
         )
-        # Exceptions from render or _print_file will propagate up
-        rendered = render(label)
+        printers = self.get_available_printers()
+        if not printers:
+            self._last_discovery = 0.0
+            raise PrintFailedError("No available printers found")
+
+        size = self.get_label_size(printers[0])
+        rendered = render(label, size)
         with tempfile.NamedTemporaryFile(suffix=".png") as fp:
-            rendered.save(fp)
+            rendered.save(fp, dpi=(300, 300))
             fp.flush()
             self._print_file(fp.name)
