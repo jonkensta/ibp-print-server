@@ -26,15 +26,22 @@ class Printer:
         9: "completed",
     }
 
-    def __init__(self) -> None:
+    def __init__(self, cache_duration: float = 30.0) -> None:
         self._conn = cups.Connection()
         self._context = pyudev.Context()
+        self._cache_duration = cache_duration
+        self._cached_printers: list[str] = []
+        self._last_discovery = 0.0
 
     def get_available_printers(self) -> list[str]:
         """
         Returns a list of printer names that are both configured in CUPS and
-        physically connected via USB.
+        physically connected via USB. Results are cached.
         """
+        now = time.time()
+        if now - self._last_discovery < self._cache_duration:
+            return self._cached_printers
+
         try:
             attributes = self._conn.getPrinters()
         except cups.IPPError as e:
@@ -73,7 +80,9 @@ class Printer:
                 )
                 return False
 
-        return list(filter(is_plugged_in, printers))
+        self._cached_printers = list(filter(is_plugged_in, printers))
+        self._last_discovery = now
+        return self._cached_printers
 
     def _try_print_file_on_printer(
         self,
@@ -121,6 +130,7 @@ class Printer:
     def _print_file(self, name: str) -> None:
         printers = self.get_available_printers()
         if not printers:
+            self._last_discovery = 0.0
             logger.warning("No available printers found.")
             raise PrintFailedError("No available printers found")
 
@@ -128,6 +138,7 @@ class Printer:
             try:
                 self._try_print_file_on_printer(name, printer)
             except PrintFailedError:
+                self._last_discovery = 0.0
                 logger.warning(f"Failed to print on {printer}, trying next...")
                 continue
             else:
