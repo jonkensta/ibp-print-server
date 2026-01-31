@@ -59,8 +59,9 @@ def test_valid_post(server: tuple[str, LabelServer]) -> None:
         "unit_name": "Block A",
         "unit_shipping_method": "Truck",
     }
-    status, _ = send_post(base_url, payload)
+    status, body = send_post(base_url, payload)
     assert status == 200
+    assert b"queued" in body
 
 
 def test_missing_keys(server: tuple[str, LabelServer]) -> None:

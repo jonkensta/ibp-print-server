@@ -156,9 +156,10 @@ class LabelServer:
                     queue.put(data)
 
                     self.send_response(200)
-                    self.send_header("Content-type", "text/xml")
+                    self.send_header("Content-type", "application/json")
                     self._send_cors_headers()
                     self.end_headers()
+                    self.wfile.write(b'{"status": "queued"}')
                 except Exception:
                     logger.exception("Unexpected error in do_POST")
                     self.send_error(500)
