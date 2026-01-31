@@ -139,38 +139,24 @@ def render(label: dict[str, str], size: tuple[int, int] = (1050, 420)) -> Image.
     image = Image.new("L", (int(w), int(h)), color=(255,))
     draw = ImageDraw.Draw(image)
 
-    # package ID barcode
-    box = (0.68 * w, 0.05 * h), (0.95 * w, 0.10 * h)
-    fit_text(draw, box, "package ID")
-
-    box = (0.68 * w, 0.10 * h), (0.95 * w, 0.50 * h)
+    # package ID barcode (full width)
+    box = (0.05 * w, 0.05 * h), (0.95 * w, 0.38 * h)
     add_barcode(image, label["package_id"], box)
 
-    box = (0.68 * w, 0.50 * h), (0.95 * w, 0.60 * h)
-    fit_text(draw, box, label["package_id"])
+    box = (0.05 * w, 0.38 * h), (0.95 * w, 0.48 * h)
+    fit_text(draw, box, f"PACKAGE ID: {label['package_id']}".upper())
 
-    # inmate ID barcode
-    box = (0.05 * w, 0.05 * h), (0.65 * w, 0.10 * h)
-    fit_text(draw, box, "inmate ID")
+    # inmate name and ID
+    box = (0.05 * w, 0.50 * h), (0.95 * w, 0.75 * h)
+    fit_text(draw, box, f"{label['inmate_name']} #{label['inmate_id']}".upper())
 
-    box = (0.05 * w, 0.10 * h), (0.65 * w, 0.50 * h)
-    add_barcode(image, label["inmate_id"], box)
-
-    box = (0.05 * w, 0.50 * h), (0.65 * w, 0.60 * h)
-    fit_text(draw, box, label["inmate_id"])
-
-    # inmate name
-    box = (0.05 * w, 0.60 * h), (0.95 * w, 0.90 * h)
-    fit_text(draw, box, label["inmate_name"])
-
-    # other info at bottom
-    box = (0.05 * w, 0.90 * h), (0.33 * w, 0.95 * h)
-    fit_text(draw, box, label["inmate_jurisdiction"])
-
-    box = (0.33 * w, 0.90 * h), (0.67 * w, 0.95 * h)
-    fit_text(draw, box, label["unit_name"])
-
-    box = (0.67 * w, 0.90 * h), (0.95 * w, 0.95 * h)
-    fit_text(draw, box, label["unit_shipping_method"])
+    # jurisdiction, unit, shipping
+    box = (0.05 * w, 0.77 * h), (0.95 * w, 0.95 * h)
+    details = (
+        f"{label['inmate_jurisdiction']} \u2014 "
+        f"{label['unit_name']} \u2014 "
+        f"{label['unit_shipping_method']}"
+    ).upper()
+    fit_text(draw, box, details)
 
     return image
