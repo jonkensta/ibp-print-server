@@ -25,6 +25,7 @@ MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
 
 class PayloadTooLargeError(Exception):
     """Raised when the payload exceeds the maximum allowed size."""
+
     pass
 
 
@@ -55,6 +56,9 @@ class LabelServer:
                 except (ValueError, KeyError) as e:
                     logger.error(f"Invalid Content-Length: {e}")
                     raise ValueError("Invalid Content-Length header") from e
+
+                if content_length < 0:
+                    raise ValueError("Negative Content-Length")
 
                 if content_length > MAX_PAYLOAD_SIZE:
                     raise PayloadTooLargeError(
