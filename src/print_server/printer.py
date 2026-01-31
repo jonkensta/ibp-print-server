@@ -29,25 +29,17 @@ class Printer:
 
     def __init__(
         self,
-        cache_duration: float = 30.0,
         preferred_printer: str | None = None,
     ) -> None:
         self._conn = cups.Connection()
         self._context = pyudev.Context()
-        self._cache_duration = cache_duration
         self._preferred_printer = preferred_printer
-        self._cached_printers: list[str] = []
-        self._last_discovery = 0.0
 
     def get_available_printers(self) -> list[str]:
         """
         Returns a list of printer names that are both configured in CUPS and
-        physically connected via USB. Results are cached.
+        physically connected via USB.
         """
-        now = time.time()
-        if now - self._last_discovery < self._cache_duration:
-            return self._cached_printers
-
         try:
             attributes = self._conn.getPrinters()
         except cups.IPPError as e:
@@ -58,15 +50,11 @@ class Printer:
 
         if self._preferred_printer:
             if self._preferred_printer in printers:
-                self._cached_printers = [self._preferred_printer]
-                self._last_discovery = now
-                return self._cached_printers
+                return [self._preferred_printer]
             else:
                 logger.warning(
                     f"Preferred printer '{self._preferred_printer}' not found in CUPS."
                 )
-                self._cached_printers = []
-                self._last_discovery = now
                 return []
 
         # Get (manufacturer, product) pairs from plugged-in USB devices
@@ -96,9 +84,7 @@ class Printer:
                 logger.debug(f"Could not parse URI for {printer_name}: {uri}")
                 return False
 
-        self._cached_printers = list(filter(is_plugged_in, printers))
-        self._last_discovery = now
-        return self._cached_printers
+        return list(filter(is_plugged_in, printers))
 
     def get_label_size(self, printer_name: str, dpi: int = 300) -> tuple[int, int]:
         """Get label size in pixels for a printer's default media.
@@ -177,7 +163,6 @@ class Printer:
     def _print_file(self, name: str) -> None:
         printers = self.get_available_printers()
         if not printers:
-            self._last_discovery = 0.0
             logger.warning("No available printers found.")
             raise PrintFailedError("No available printers found")
 
@@ -185,7 +170,6 @@ class Printer:
             try:
                 self._try_print_file_on_printer(name, printer)
             except PrintFailedError:
-                self._last_discovery = 0.0
                 logger.warning(f"Failed to print on {printer}, trying next...")
                 continue
             else:
@@ -200,7 +184,6 @@ class Printer:
         )
         printers = self.get_available_printers()
         if not printers:
-            self._last_discovery = 0.0
             raise PrintFailedError("No available printers found")
 
         size = self.get_label_size(printers[0])
