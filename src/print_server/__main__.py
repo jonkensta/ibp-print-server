@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import queue
 import signal
 import sys
 from types import FrameType
@@ -50,11 +51,13 @@ def main() -> None:
         # Pass the printer instance to the server
         server = LabelServer(("", args.port), printer)
 
+        shutdown_requested = False
+
         # Signal handling for graceful shutdown
         def signal_handler(sig: int, frame: FrameType | None) -> None:
-            logger.info("Received signal, shutting down...")
-            server.shutdown()
-            sys.exit(0)
+            nonlocal shutdown_requested
+            logger.info("Received signal, initiating shutdown...")
+            shutdown_requested = True
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -63,17 +66,25 @@ def main() -> None:
 
         logger.info("Server running. Waiting for jobs...")
         try:
-            while True:
+            while not shutdown_requested:
                 # This loop pulls jobs from the server queue and prints them
-                label = server.get_job()
+                try:
+                    label = server.get_job(timeout=1.0)
+                except queue.Empty:
+                    continue
+
                 if label:
                     try:
                         printer.print_label(label)
                     except Exception as e:
                         logger.error(f"Failed to print label from queue: {e}")
         except KeyboardInterrupt:
-            # Should be handled by signal_handler, but just in case
+            # Handle Ctrl+C if it bypasses signal handler
+            # or happens during blocking calls
+            logger.info("KeyboardInterrupt received.")
+        finally:
             server.shutdown()
+            logger.info("Shutdown complete.")
 
     else:
         parser.print_help()

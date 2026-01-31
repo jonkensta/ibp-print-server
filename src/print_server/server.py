@@ -169,8 +169,8 @@ class LabelServer:
         logger.info(f"Starting server on {self._address}")
         self._thread.start()
 
-    def get_job(self) -> dict[str, Any]:
-        return self._queue.get()
+    def get_job(self, timeout: float | None = None) -> dict[str, Any]:
+        return self._queue.get(timeout=timeout)
 
     def shutdown(self) -> None:
         logger.info("Shutting down server...")
