@@ -43,6 +43,46 @@ Prints a single label from a JSON file.
 uv run print-server print path/to/label.json
 ```
 
+## Deployment
+
+### Prerequisites
+
+On the target machine (Linux Mint), install system dependencies:
+
+```bash
+sudo apt install libcups2-dev libudev-dev
+```
+
+Install `uv`:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Install the print server
+
+```bash
+uv tool install git+https://github.com/jonkensta/ibp-print-server.git
+```
+
+### Set up the systemd service
+
+```bash
+sudo cp print-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now print-server
+```
+
+### Managing the service
+
+```bash
+sudo systemctl status print-server    # check status
+sudo systemctl restart print-server   # restart (also triggers update)
+journalctl -u print-server -f         # follow logs
+```
+
+The service automatically pulls the latest version from GitHub on every start or restart.
+
 ## Development
 
 Run linting and tests:
