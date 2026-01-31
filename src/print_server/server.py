@@ -173,6 +173,9 @@ class LabelServer:
     def get_job(self, timeout: float | None = None) -> dict[str, Any]:
         return self._queue.get(timeout=timeout)
 
+    def put_job(self, job: dict[str, Any]) -> None:
+        self._queue.put(job)
+
     def shutdown(self) -> None:
         logger.info("Shutting down server...")
         self._httpd.shutdown()
