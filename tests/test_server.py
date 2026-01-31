@@ -2,6 +2,8 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Generator
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,16 +11,20 @@ import pytest
 from print_server.server import LabelServer
 
 
-@pytest.fixture
-def server():
+@pytest.fixture  # type: ignore[untyped-decorator]
+def server() -> Generator[tuple[str, LabelServer], None, None]:
     # Mock printer
     printer = MagicMock()
     # Bind to port 0 to let OS choose a free port
     server = LabelServer(("127.0.0.1", 0), printer)
     server.start()
 
-    # Get the actual port
-    host, port = server._httpd.server_address
+    # Get the actual port. server_address can be a 2-tuple (IPv4) or 4-tuple (IPv6).
+    addr = server._httpd.server_address
+    host = addr[0]
+    if isinstance(host, bytes):
+        host = host.decode("utf-8")
+    port = addr[1]
     base_url = f"http://{host}:{port}"
 
     yield base_url, server
@@ -26,7 +32,7 @@ def server():
     server.shutdown()
 
 
-def send_post(base_url, data_dict):
+def send_post(base_url: str, data_dict: dict[str, Any]) -> tuple[int, bytes]:
     data_json = json.dumps(data_dict)
     # The server expects 'data' in the query string of the body
     # (x-www-form-urlencoded style somewhat)
@@ -43,7 +49,7 @@ def send_post(base_url, data_dict):
         return e.code, e.read()
 
 
-def test_valid_post(server):
+def test_valid_post(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
         "package_id": "PKG123",
@@ -57,7 +63,7 @@ def test_valid_post(server):
     assert status == 200
 
 
-def test_missing_keys(server):
+def test_missing_keys(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
         "package_id": "PKG123",
@@ -72,7 +78,7 @@ def test_missing_keys(server):
     assert b"Missing required keys" in body
 
 
-def test_invalid_type(server):
+def test_invalid_type(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
         "package_id": 123,  # Int instead of str
@@ -87,7 +93,7 @@ def test_invalid_type(server):
     assert b"must be a string" in body
 
 
-def test_field_too_long(server):
+def test_field_too_long(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
         "package_id": "A" * 10001,  # Too long
@@ -102,7 +108,7 @@ def test_field_too_long(server):
     assert b"is too long" in body
 
 
-def test_payload_too_large(server):
+def test_payload_too_large(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     # 2MB of data
     large_data = "A" * (2 * 1024 * 1024)
@@ -119,36 +125,27 @@ def test_payload_too_large(server):
     assert status == 413
 
 
-def test_invalid_content_length(server):
+def test_invalid_content_length(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
-
     req = urllib.request.Request(base_url, method="POST")
-
     # Manually set a bad Content-Length
-
     req.add_header("Content-Length", "invalid")
-
     try:
         with urllib.request.urlopen(req) as response:
             status = response.status
-
     except urllib.error.HTTPError as e:
         status = e.code
 
     assert status == 400
 
 
-def test_negative_content_length(server):
+def test_negative_content_length(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
-
     req = urllib.request.Request(base_url, method="POST")
-
     req.add_header("Content-Length", "-1")
-
     try:
         with urllib.request.urlopen(req) as response:
             status = response.status
-
     except urllib.error.HTTPError as e:
         status = e.code
 
