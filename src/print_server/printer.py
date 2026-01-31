@@ -37,7 +37,7 @@ class Printer:
         """
         try:
             attributes = self._conn.getPrinters()
-        except Exception as e:
+        except cups.IPPError as e:
             logger.error(f"Failed to get printers from CUPS: {e}")
             return []
 
@@ -67,7 +67,7 @@ class Printer:
 
                 printer_serial = serial_list[0]
                 return printer_serial in plugged_in_serials
-            except Exception:
+            except (ValueError, IndexError, AttributeError):
                 logger.debug(
                     f"Could not parse serial for {printer_name} with URI {uri}"
                 )

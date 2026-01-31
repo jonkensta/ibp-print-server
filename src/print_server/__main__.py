@@ -6,7 +6,7 @@ import signal
 import sys
 from types import FrameType
 
-from .printer import Printer
+from .printer import Printer, PrintFailedError
 from .server import LabelServer
 
 # Configure logging
@@ -76,8 +76,10 @@ def main() -> None:
                 if label:
                     try:
                         printer.print_label(label)
-                    except Exception as e:
-                        logger.error(f"Failed to print label from queue: {e}")
+                    except PrintFailedError as e:
+                        logger.error(f"Print failed: {e}")
+                    except Exception:
+                        logger.exception("Unexpected error printing label")
         except KeyboardInterrupt:
             # Handle Ctrl+C if it bypasses signal handler
             # or happens during blocking calls
