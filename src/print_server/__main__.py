@@ -78,15 +78,7 @@ def main() -> None:
                     try:
                         printer.print_label(label)
                     except PrintFailedError as e:
-                        retries = label.get("_retries", 0)
-                        if retries < 3:
-                            label["_retries"] = retries + 1
-                            logger.warning(
-                                f"Print failed ({e}), retrying {label['_retries']}/3..."
-                            )
-                            server.put_job(label)
-                        else:
-                            logger.error(f"Print failed after 3 retries: {e}")
+                        logger.error(f"Print failed: {e}")
                     except Exception:
                         logger.exception("Unexpected error printing label")
         except KeyboardInterrupt:
