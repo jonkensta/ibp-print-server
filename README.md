@@ -65,6 +65,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install git+https://github.com/jonkensta/ibp-print-server.git
 ```
 
+### Register a printer
+
+CUPS printer names must end with the printer's USB vendor and product IDs in the format `_VVVV:PPPP`. The server uses this suffix to detect whether the printer is physically connected. For example, a printer with USB ID `0a5f:0001` should be named something like `MyPrinter_0a5f:0001`. You can find the USB IDs of connected devices with `lsusb`.
+
 ### Set up the systemd service
 
 ```bash
