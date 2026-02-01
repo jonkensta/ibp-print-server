@@ -2,7 +2,6 @@ import logging
 import re
 import tempfile
 import time
-from urllib.parse import urlparse
 
 import cups
 import pyudev
@@ -39,52 +38,43 @@ class Printer:
         """
         Returns a list of printer names that are both configured in CUPS and
         physically connected via USB.
+
+        Printer names must end with ``_VVVV:PPPP`` where VVVV and PPPP are
+        the hexadecimal USB vendor and product IDs (e.g.
+        ``iDPRT_SP310_0a5f:0001``).
         """
         try:
-            attributes = self._conn.getPrinters()
+            cups_printers = list(self._conn.getPrinters().keys())
         except cups.IPPError as e:
             logger.error(f"Failed to get printers from CUPS: {e}")
             return []
 
-        printers = attributes.keys()
-
         if self._preferred_printer:
-            if self._preferred_printer in printers:
+            if self._preferred_printer in cups_printers:
                 return [self._preferred_printer]
-            else:
-                logger.warning(
-                    f"Preferred printer '{self._preferred_printer}' not found in CUPS."
-                )
-                return []
+            logger.warning(
+                f"Preferred printer '{self._preferred_printer}' not found in CUPS."
+            )
+            return []
 
-        # Get (manufacturer, product) pairs from plugged-in USB devices
-        plugged_in_devices: set[tuple[str, str]] = set()
-        for device in self._context.list_devices(subsystem="usb"):
-            manufacturer = device.attributes.get("manufacturer")
-            product = device.attributes.get("product")
-            if manufacturer and product:
-                mfr = (
-                    manufacturer.decode()
-                    if isinstance(manufacturer, bytes)
-                    else manufacturer
-                )
-                prod = product.decode() if isinstance(product, bytes) else product
-                plugged_in_devices.add((mfr.lower(), prod.lower()))
+        # TODO: verify the idVendor/idProduct attribute names on real hardware
+        connected_ids: set[str] = set()
+        for dev in self._context.list_devices(subsystem="usb"):
+            vid = dev.attributes.get("idVendor")
+            pid = dev.attributes.get("idProduct")
+            if vid and pid:
+                vid_s = vid.decode() if isinstance(vid, bytes) else vid
+                pid_s = pid.decode() if isinstance(pid, bytes) else pid
+                connected_ids.add(f"{vid_s}:{pid_s}")
 
-        def is_plugged_in(printer_name: str) -> bool:
-            uri = attributes[printer_name].get("device-uri", "")
-            try:
-                parsed = urlparse(uri)
-                if parsed.scheme != "usb":
-                    return False
-                vendor = parsed.hostname or ""
-                product = parsed.path.strip("/")
-                return (vendor.lower(), product.lower()) in plugged_in_devices
-            except (ValueError, AttributeError):
-                logger.debug(f"Could not parse URI for {printer_name}: {uri}")
+        def is_connected(name: str) -> bool:
+            match = re.search(r"_([0-9a-fA-F]{4}:[0-9a-fA-F]{4})$", name)
+            if not match:
+                logger.debug(f"Printer '{name}' has no USB ID suffix")
                 return False
+            return match.group(1) in connected_ids
 
-        return list(filter(is_plugged_in, printers))
+        return [p for p in cups_printers if is_connected(p)]
 
     def get_label_size(self, printer_name: str, dpi: int = 300) -> tuple[int, int]:
         """Get label size in pixels for a printer's default media.
