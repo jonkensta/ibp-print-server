@@ -33,6 +33,13 @@ def main() -> None:
     server_parser.add_argument("--port", type=int, default=40121)
     server_parser.add_argument("--printer", type=str, help="Preferred printer name")
 
+    # List Command
+    subparsers.add_parser("list", help="List available printers")
+
+    # Test Command
+    test_parser = subparsers.add_parser("test", help="Print a test label")
+    test_parser.add_argument("--printer", type=str, help="Printer name to use")
+
     args = parser.parse_args()
 
     if args.command == "print":
@@ -88,6 +95,34 @@ def main() -> None:
         finally:
             server.shutdown()
             logger.info("Shutdown complete.")
+
+    elif args.command == "list":
+        printer = Printer()
+        printers = printer.get_available_printers()
+        if not printers:
+            logger.info("No available printers found.")
+        else:
+            logger.info("Available printers:")
+            for p in printers:
+                logger.info(f"  - {p}")
+
+    elif args.command == "test":
+        label = {
+            "package_id": "12345678",
+            "inmate_id": "12345678",
+            "inmate_name": "Johnny Mister Long Name",
+            "inmate_jurisdiction": "Jurisdiction",
+            "unit_name": "Long Texas Unit Name Facility",
+            "unit_shipping_method": "Shipping Method",
+        }
+        printer = Printer(preferred_printer=args.printer)
+        try:
+            logger.info("Attempting to print test label...")
+            printer.print_label(label)
+            logger.info("Test label printed successfully.")
+        except Exception:
+            logger.exception("Failed to print test label")
+            sys.exit(1)
 
     else:
         parser.print_help()
