@@ -48,7 +48,7 @@ def send_post(base_url: str, data_dict: dict[str, Any]) -> tuple[int, bytes]:
 def test_valid_post(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
-        "package_id": "PKG123",
+        "package_id": 123,
         "inmate_id": "12345",
         "inmate_name": "John Doe",
         "inmate_jurisdiction": "County",
@@ -63,7 +63,7 @@ def test_valid_post(server: tuple[str, LabelServer]) -> None:
 def test_missing_keys(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
-        "package_id": "PKG123",
+        "package_id": 123,
         # Missing inmate_id
         "inmate_name": "John Doe",
         "inmate_jurisdiction": "County",
@@ -78,7 +78,7 @@ def test_missing_keys(server: tuple[str, LabelServer]) -> None:
 def test_invalid_type(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
-        "package_id": 123,  # Int instead of str
+        "package_id": "not_an_int",  # String instead of int
         "inmate_id": "12345",
         "inmate_name": "John Doe",
         "inmate_jurisdiction": "County",
@@ -87,14 +87,14 @@ def test_invalid_type(server: tuple[str, LabelServer]) -> None:
     }
     status, body = send_post(base_url, payload)
     assert status == 400
-    assert b"must be a string" in body
+    assert b"must be an integer" in body
 
 
 def test_field_too_long(server: tuple[str, LabelServer]) -> None:
     base_url, _ = server
     payload = {
-        "package_id": "A" * 10001,  # Too long
-        "inmate_id": "12345",
+        "package_id": 123,
+        "inmate_id": "A" * 10001,  # Too long
         "inmate_name": "John Doe",
         "inmate_jurisdiction": "County",
         "unit_name": "Block A",

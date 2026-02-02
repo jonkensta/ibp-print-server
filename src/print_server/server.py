@@ -19,6 +19,7 @@ REQUIRED_KEYS = {
     "unit_name",
     "unit_shipping_method",
 }
+STRING_KEYS = REQUIRED_KEYS - {"package_id"}
 MAX_FIELD_LENGTH = 10000
 MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
 
@@ -137,7 +138,12 @@ class LabelServer:
                         self.send_error(400, msg)
                         return
 
-                    for key in REQUIRED_KEYS:
+                    if not isinstance(data["package_id"], int):
+                        self.send_error(400, "Field 'package_id' must be an integer")
+                        return
+                    data["package_id"] = str(data["package_id"])
+
+                    for key in STRING_KEYS:
                         val = data[key]
                         if not isinstance(val, str):
                             self.send_error(400, f"Field '{key}' must be a string")
