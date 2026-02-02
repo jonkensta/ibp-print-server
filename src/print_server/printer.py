@@ -5,6 +5,7 @@ import time
 
 import cups
 import pyudev
+from PIL import Image
 
 from .renderer import render
 
@@ -78,7 +79,8 @@ class Printer:
     def get_label_size(self, printer_name: str, dpi: int = 300) -> tuple[int, int]:
         """Get label size in pixels for a printer's default media.
 
-        Returns (width, height) in pixels at the given DPI.
+        Returns (width, height) in pixels at the given DPI, as reported by
+        CUPS (no orientation swap).
         """
         try:
             attrs = self._conn.getPrinterAttributes(printer_name)
@@ -96,10 +98,6 @@ class Printer:
 
         w_px = int(w_mm / 25.4 * dpi)
         h_px = int(h_mm / 25.4 * dpi)
-
-        # Ensure landscape orientation (width >= height)
-        if w_px < h_px:
-            w_px, h_px = h_px, w_px
 
         logger.info(
             f"Label size for {printer_name}: {w_mm}x{h_mm}mm -> {w_px}x{h_px}px"
@@ -175,8 +173,14 @@ class Printer:
         if not printers:
             raise PrintFailedError("No available printers found")
 
-        size = self.get_label_size(printers[0])
-        rendered = render(label, size)
+        cups_w, cups_h = self.get_label_size(printers[0])
+        render_w = max(cups_w, cups_h)
+        render_h = min(cups_w, cups_h)
+        rendered = render(label, (render_w, render_h))
+
+        if cups_w < cups_h:
+            rendered = rendered.transpose(Image.Transpose.ROTATE_90)
+
         with tempfile.NamedTemporaryFile(suffix=".png") as fp:
             rendered.save(fp, dpi=(300, 300))
             fp.flush()
