@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import tempfile
 import time
@@ -79,29 +80,59 @@ class Printer:
     def get_label_size(self, printer_name: str, dpi: int = 300) -> tuple[int, int]:
         """Get label size in pixels for a printer's default media.
 
+        Reads the default PageSize from the printer's PPD file.
         Returns (width, height) in pixels at the given DPI, as reported by
-        CUPS (no orientation swap).
+        the PPD (no orientation swap).
         """
         try:
-            attrs = self._conn.getPrinterAttributes(printer_name)
+            ppd_file = self._conn.getPPD(printer_name)
         except cups.IPPError as e:
-            logger.error(f"Failed to get attributes for {printer_name}: {e}")
-            raise PrintFailedError(f"Cannot query printer attributes: {e}") from e
+            logger.error(f"Failed to get PPD for {printer_name}: {e}")
+            raise PrintFailedError(f"Cannot get PPD: {e}") from e
 
-        media = attrs.get("media-default", "")
-        match = re.search(r"(\d+\.?\d*)x(\d+\.?\d*)mm", media)
-        if not match:
-            raise PrintFailedError(f"Cannot parse media size from: {media}")
+        try:
+            ppd = cups.PPD(ppd_file)
+            ppd.markDefaults()
+            option = ppd.findOption("PageSize")
+            if not option:
+                raise PrintFailedError("No PageSize option in PPD")
 
-        w_mm = float(match.group(1))
-        h_mm = float(match.group(2))
+            choice = option.defchoice
+        finally:
+            os.unlink(ppd_file)
 
-        w_px = int(w_mm / 25.4 * dpi)
-        h_px = int(h_mm / 25.4 * dpi)
+        # PPD PageSize choices use "wNNhNN" format (points) or
+        # "Custom.WxHin" / "Custom.WxHmm" for custom sizes.
+        match = re.match(r"w(\d+)h(\d+)", choice)
+        if match:
+            w_pt = float(match.group(1))
+            h_pt = float(match.group(2))
+        else:
+            custom = re.match(r"Custom\.(\d+\.?\d*)x(\d+\.?\d*)(in|mm|cm)?", choice)
+            if not custom:
+                raise PrintFailedError(
+                    f"Cannot parse PageSize from PPD choice: {choice}"
+                )
+            w_val = float(custom.group(1))
+            h_val = float(custom.group(2))
+            unit = custom.group(3) or "pt"
+            if unit == "in":
+                w_pt = w_val * 72
+                h_pt = h_val * 72
+            elif unit == "mm":
+                w_pt = w_val * 72 / 25.4
+                h_pt = h_val * 72 / 25.4
+            elif unit == "cm":
+                w_pt = w_val * 72 / 2.54
+                h_pt = h_val * 72 / 2.54
+            else:
+                w_pt = w_val
+                h_pt = h_val
 
-        logger.info(
-            f"Label size for {printer_name}: {w_mm}x{h_mm}mm -> {w_px}x{h_px}px"
-        )
+        w_px = int(w_pt / 72 * dpi)
+        h_px = int(h_pt / 72 * dpi)
+
+        logger.info(f"Label size for {printer_name}: {choice} -> {w_px}x{h_px}px")
         return w_px, h_px
 
     def _try_print_file_on_printer(
