@@ -68,13 +68,7 @@ class LabelServer:
                 return self.rfile.read(content_length).decode("utf-8")
 
             def _send_cors_headers(self) -> None:
-                origin = self.headers.get("Origin")
-                allowed_origins = {
-                    "http://ibp-server.local",
-                    "https://ibp-server.local",
-                }
-                if origin in allowed_origins:
-                    self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Access-Control-Allow-Origin", "*")
 
             def do_GET(self) -> None:  # noqa: N802
                 if self.path == "/health":
