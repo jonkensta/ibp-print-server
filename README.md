@@ -16,6 +16,8 @@ A Python-based print server application for generating and printing labels with 
 -   CUPS installed and running.
 -   `libcups2-dev` (for `pycups` compilation).
 -   `libudev-dev` (for `pyudev`).
+-   `git` (for installing from the Git repository).
+-   `python-dev` (for building native extensions).
 
 ## Installation
 
@@ -50,7 +52,7 @@ uv run print-server print path/to/label.json
 On the target machine (Linux Mint), install system dependencies:
 
 ```bash
-sudo apt install libcups2-dev libudev-dev
+sudo apt install git python-dev libcups2-dev libudev-dev
 ```
 
 Install `uv`:
