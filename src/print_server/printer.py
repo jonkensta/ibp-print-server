@@ -57,7 +57,6 @@ class Printer:
             )
             return []
 
-        # TODO: verify the idVendor/idProduct attribute names on real hardware
         connected_ids: set[str] = set()
         for dev in self._context.list_devices(subsystem="usb"):
             vid = dev.attributes.get("idVendor")
@@ -65,14 +64,14 @@ class Printer:
             if vid and pid:
                 vid_s = vid.decode() if isinstance(vid, bytes) else vid
                 pid_s = pid.decode() if isinstance(pid, bytes) else pid
-                connected_ids.add(f"{vid_s}:{pid_s}")
+                connected_ids.add(f"{vid_s}:{pid_s}".lower())
 
         def is_connected(name: str) -> bool:
             match = re.search(r"_([0-9a-fA-F]{4}:[0-9a-fA-F]{4})$", name)
             if not match:
                 logger.debug(f"Printer '{name}' has no USB ID suffix")
                 return False
-            return match.group(1) in connected_ids
+            return match.group(1).lower() in connected_ids
 
         return [p for p in cups_printers if is_connected(p)]
 
