@@ -1,3 +1,4 @@
+import io
 import json
 import urllib.error
 import urllib.parse
@@ -7,6 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from PIL import Image
 
 from print_server.server import LabelServer
 
@@ -152,3 +154,82 @@ def test_negative_content_length(server: tuple[str, LabelServer]) -> None:
         status = e.code
 
     assert status == 400
+
+
+def make_png(size: tuple[int, int] = (100, 40)) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("L", size, color=(255,)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def send_image_post(base_url: str, body: bytes) -> tuple[int, bytes]:
+    req = urllib.request.Request(f"{base_url}/print-image", data=body, method="POST")
+    req.add_header("Content-Type", "image/png")
+    try:
+        with urllib.request.urlopen(req) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def test_print_image_valid(server: tuple[str, LabelServer]) -> None:
+    base_url, label_server = server
+    label_server._printer.get_available_printers.return_value = [  # type: ignore[attr-defined]
+        "Test_Printer_0a5f:0001"
+    ]
+
+    png = make_png()
+    status, body = send_image_post(base_url, png)
+
+    assert status == 200
+    assert b"queued" in body
+
+    job = label_server.get_job(timeout=1.0)
+    assert job["type"] == "image"
+    assert job["image"] == png
+
+
+def test_print_image_invalid_data(server: tuple[str, LabelServer]) -> None:
+    base_url, _ = server
+    status, body = send_image_post(base_url, b"this is not an image")
+    assert status == 400
+    assert b"not a valid image" in body
+
+
+def test_print_image_no_printers(server: tuple[str, LabelServer]) -> None:
+    base_url, label_server = server
+    label_server._printer.get_available_printers.return_value = []  # type: ignore[attr-defined]
+
+    status, body = send_image_post(base_url, make_png())
+    assert status == 503
+    assert b"No label printers" in body
+
+
+def test_print_image_payload_too_large(server: tuple[str, LabelServer]) -> None:
+    base_url, _ = server
+    large_data = b"A" * (1024 * 1024 + 1024)
+    try:
+        status, _ = send_image_post(base_url, large_data)
+    except urllib.error.URLError:
+        # The server may close the connection before the client finishes
+        # writing; treat this the same as the payload-too-large test above.
+        status = 413
+
+    assert status == 413
+
+
+def test_print_image_error_responses_include_cors(
+    server: tuple[str, LabelServer],
+) -> None:
+    base_url, _ = server
+    req = urllib.request.Request(
+        f"{base_url}/print-image", data=b"not an image", method="POST"
+    )
+    req.add_header("Content-Type", "image/png")
+    try:
+        with urllib.request.urlopen(req) as response:
+            headers = response.headers
+    except urllib.error.HTTPError as e:
+        headers = e.headers
+
+    assert headers.get("Access-Control-Allow-Origin") == "*"

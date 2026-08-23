@@ -83,7 +83,10 @@ def main() -> None:
 
                 if label:
                     try:
-                        printer.print_label(label)
+                        if label.get("type") == "image":
+                            printer.print_image(label["image"])
+                        else:
+                            printer.print_label(label)
                     except PrintFailedError as e:
                         logger.error(f"Print failed: {e}")
                     except Exception:
