@@ -7,7 +7,7 @@ Wants=cups.service
 Type=simple
 User=ibp
 ExecStartPre=/home/ibp/.local/bin/uv tool upgrade print-server
-ExecStart=/home/ibp/.local/bin/print-server
+ExecStart=/home/ibp/.local/bin/print-server server
 Restart=on-failure
 RestartSec=5
 

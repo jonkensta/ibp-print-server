@@ -1,10 +1,13 @@
 import http.server
+import io
 import json
 import logging
 import threading
 from queue import Queue
 from typing import Any
 from urllib.parse import parse_qs
+
+from PIL import Image, UnidentifiedImageError
 
 # Import Printer for type hinting
 from .printer import Printer
@@ -51,7 +54,7 @@ class LabelServer:
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.end_headers()
 
-            def _get_post_data(self) -> str:
+            def _get_post_body(self) -> bytes:
                 try:
                     content_length = int(self.headers["Content-Length"])
                 except (ValueError, KeyError) as e:
@@ -66,10 +69,21 @@ class LabelServer:
                         f"Payload too large: {content_length} bytes"
                     )
 
-                return self.rfile.read(content_length).decode("utf-8")
+                return self.rfile.read(content_length)
+
+            def _get_post_data(self) -> str:
+                return self._get_post_body().decode("utf-8")
 
             def _send_cors_headers(self) -> None:
                 self.send_header("Access-Control-Allow-Origin", "*")
+
+            def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-type", "application/json")
+                self._send_cors_headers()
+                self.end_headers()
+                self.wfile.write(body)
 
             def do_GET(self) -> None:  # noqa: N802
                 if self.path == "/health":
@@ -102,6 +116,64 @@ class LabelServer:
                     self.send_error(404)
 
             def do_POST(self) -> None:  # noqa: N802
+                if self.path == "/print-image":
+                    self._handle_print_image()
+                else:
+                    self._handle_print_label()
+
+            def _handle_print_image(self) -> None:
+                """Queue a pre-rendered label image for direct printing.
+
+                Expects the raw image bytes (e.g. a PNG) as the request body.
+                Errors are returned as JSON with CORS headers so browser
+                clients can read them and fall back to browser printing.
+                """
+                try:
+                    try:
+                        body = self._get_post_body()
+                    except PayloadTooLargeError as e:
+                        self._send_json(413, {"status": "error", "error": str(e)})
+                        return
+                    except ValueError as e:
+                        self._send_json(400, {"status": "error", "error": str(e)})
+                        return
+
+                    try:
+                        with Image.open(io.BytesIO(body)) as image:
+                            image.verify()
+                    except (UnidentifiedImageError, OSError, ValueError):
+                        logger.warning("POST /print-image with invalid image data")
+                        self._send_json(
+                            400,
+                            {"status": "error", "error": "Body is not a valid image"},
+                        )
+                        return
+
+                    try:
+                        printers = printer.get_available_printers()
+                    except Exception as e:
+                        logger.error(f"Failed to get printers: {e}")
+                        printers = []
+
+                    if not printers:
+                        self._send_json(
+                            503,
+                            {
+                                "status": "error",
+                                "error": "No label printers are available",
+                            },
+                        )
+                        return
+
+                    logger.info("Received image print job via POST /print-image")
+                    queue.put({"type": "image", "image": body})
+
+                    self._send_json(200, {"status": "queued"})
+                except Exception:
+                    logger.exception("Unexpected error in _handle_print_image")
+                    self.send_error(500)
+
+            def _handle_print_label(self) -> None:
                 try:
                     try:
                         body = self._get_post_data()
@@ -161,7 +233,7 @@ class LabelServer:
                     self.end_headers()
                     self.wfile.write(b'{"status": "queued"}')
                 except Exception:
-                    logger.exception("Unexpected error in do_POST")
+                    logger.exception("Unexpected error in _handle_print_label")
                     self.send_error(500)
 
         return Handler

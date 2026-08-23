@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -196,23 +197,53 @@ class Printer:
         logger.error("Failed to print on all available printers.")
         raise PrintFailedError("Failed to print on all available printers")
 
-    def print_label(self, label: dict[str, str]) -> None:
-        logger.info(
-            f"Rendering label for package_id: {label.get('package_id', 'unknown')}"
-        )
+    def _get_media_size(self) -> tuple[int, int]:
+        """Get the label media size in pixels for the first available printer."""
         printers = self.get_available_printers()
         if not printers:
             raise PrintFailedError("No available printers found")
 
         cups_w, cups_h = self.get_label_size(printers[0])
-        render_w = max(cups_w, cups_h)
-        render_h = min(cups_w, cups_h)
-        rendered = render(label, (render_w, render_h))
+        return cups_w, cups_h
 
+    def _print_rendered(self, rendered: Image.Image, cups_w: int, cups_h: int) -> None:
+        """Rotate a landscape-rendered label to media orientation and print."""
         if cups_w < cups_h:
             rendered = rendered.transpose(Image.Transpose.ROTATE_90)
 
         with tempfile.NamedTemporaryFile(suffix=".png") as fp:
-            rendered.save(fp, dpi=(300, 300))
+            rendered.save(fp, format="PNG", dpi=(300, 300))
             fp.flush()
             self._print_file(fp.name)
+
+    def print_label(self, label: dict[str, str]) -> None:
+        logger.info(
+            f"Rendering label for package_id: {label.get('package_id', 'unknown')}"
+        )
+        cups_w, cups_h = self._get_media_size()
+        render_w = max(cups_w, cups_h)
+        render_h = min(cups_w, cups_h)
+        rendered = render(label, (render_w, render_h))
+        self._print_rendered(rendered, cups_w, cups_h)
+
+    def print_image(self, data: bytes) -> None:
+        """Print a pre-rendered (landscape) label image directly.
+
+        The image is scaled to the printer's label media size, mirroring how
+        the browser-print fallback scales the label to fill the page.
+        """
+        logger.info("Printing pre-rendered label image")
+        try:
+            image = Image.open(io.BytesIO(data))
+            image.load()
+        except Exception as e:
+            raise PrintFailedError(f"Invalid image data: {e}") from e
+
+        cups_w, cups_h = self._get_media_size()
+        render_w = max(cups_w, cups_h)
+        render_h = min(cups_w, cups_h)
+
+        if image.size != (render_w, render_h):
+            image = image.resize((render_w, render_h), Image.Resampling.LANCZOS)
+
+        self._print_rendered(image, cups_w, cups_h)
